@@ -20,11 +20,14 @@ export default function Home() {
 
   const tickerUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    const url = new URL("/ticker.html", window.location.origin);
+    const url = new URL("/ticker", window.location.origin);
     url.hostname = host || "127.0.0.1";
-    url.searchParams.set("v", "207-smooth-interval-2");
+    url.searchParams.set("text", text);
+    url.searchParams.set("speed", speed);
+    url.searchParams.set("fontSize", fontSize);
+    url.searchParams.set("height", height);
     return url.toString();
-  }, [host]);
+  }, [host, text, speed, fontSize, height]);
 
   async function sendToCaspar(action) {
     setBusy(true);
@@ -60,8 +63,8 @@ export default function Home() {
       <section className="control-panel">
         <h1 className="title">CasparCG Hindi Scroll</h1>
         <p className="subtitle">
-          Edit the ticker, preview it, then send the HTML layer to CasparCG over
-          AMCP.
+          Edit the ticker, preview it, then send the React HTML template to
+          CasparCG over AMCP.
         </p>
 
         <div className="form">
