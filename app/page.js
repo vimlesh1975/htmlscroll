@@ -95,6 +95,7 @@ export default function Home() {
   const [fontOptions, setFontOptions] = useState([
     DEFAULT_CHANNEL_SETTINGS.fontFamily
   ]);
+  const [origin, setOrigin] = useState("");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState("Ready.");
   const [cycleState, setCycleState] = useState("idle");
@@ -105,6 +106,10 @@ export default function Home() {
   const cycleSettingsRef = useRef(DEFAULT_SETTINGS.channelSettings);
 
   const activeSettings = channelSettings[activeChannel];
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     try {
@@ -216,8 +221,8 @@ export default function Home() {
   }
 
   function buildTickerUrl(settings) {
-    if (typeof window === "undefined") return "";
-    const url = new URL("/ticker", window.location.origin);
+    if (!origin) return "";
+    const url = new URL("/ticker", origin);
     url.hostname = host || "127.0.0.1";
     url.searchParams.set("text", settings.text);
     url.searchParams.set("speed", settings.speed);
@@ -246,7 +251,7 @@ export default function Home() {
 
   const tickerUrl = useMemo(
     () => buildTickerUrl(activeSettings),
-    [host, activeSettings]
+    [origin, host, activeSettings]
   );
 
   function toggleChannel(channel) {
