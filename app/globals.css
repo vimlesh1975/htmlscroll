@@ -15,7 +15,9 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   color: var(--ink);
   background: transparent;
   font-family: Arial, "Noto Sans Devanagari", "Mangal", sans-serif;
@@ -23,48 +25,53 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
 .control-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(320px, 440px) minmax(360px, 1fr);
+  grid-template-columns: minmax(360px, 500px) minmax(360px, 1fr);
   gap: 0;
   background: var(--page);
 }
 
 .control-panel {
-  min-height: 100vh;
-  padding: 28px;
+  height: 100vh;
+  overflow: hidden;
+  padding: 16px 18px;
   background: var(--panel);
   border-right: 1px solid var(--line);
 }
 
 .preview-panel {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   align-content: center;
-  gap: 22px;
-  padding: 32px;
+  gap: 14px;
+  padding: 24px;
 }
 
 .title {
   margin: 0 0 6px;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.15;
 }
 
 .subtitle {
-  margin: 0 0 28px;
+  margin: 0 0 14px;
   color: var(--muted);
   line-height: 1.5;
+  font-size: 13px;
 }
 
 .form {
   display: grid;
-  gap: 18px;
+  gap: 10px;
 }
 
 .field {
@@ -72,16 +79,90 @@ textarea {
   gap: 8px;
 }
 
-.field-row {
+.channel-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.checkbox-row {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.channel-layout {
   display: grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 220px);
   gap: 12px;
 }
 
+.edit-channel-row {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.channel-tab {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.channel-tab.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.check-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.check-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 13px;
   font-weight: 700;
   color: #34404a;
+}
+
+.label strong {
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .input,
@@ -91,13 +172,68 @@ textarea {
   border-radius: 6px;
   background: #fff;
   color: var(--ink);
-  padding: 11px 12px;
+  padding: 8px 10px;
   outline: none;
 }
 
+.color-field {
+  grid-template-columns: 1fr;
+}
+
+.color-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.timer-badge {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f3f6f8;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.timer-badge.playing {
+  border-color: #1f8f4d;
+  background: #e8f7ee;
+  color: #16663a;
+}
+
+.timer-badge.waiting {
+  border-color: #b78313;
+  background: #fff6db;
+  color: #7a560c;
+}
+
+.timer-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9aa5ad;
+}
+
+.timer-badge.playing .timer-dot {
+  background: #1f8f4d;
+}
+
+.timer-badge.waiting .timer-dot {
+  background: #b78313;
+}
+
 .textarea {
-  min-height: 140px;
-  resize: vertical;
+  min-height: 82px;
+  resize: none;
   line-height: 1.55;
 }
 
@@ -114,7 +250,7 @@ textarea {
 }
 
 .button {
-  min-height: 42px;
+  min-height: 36px;
   border: 0;
   border-radius: 6px;
   padding: 0 16px;
@@ -139,8 +275,10 @@ textarea {
 }
 
 .status {
-  min-height: 44px;
-  padding: 12px;
+  min-height: 36px;
+  max-height: 54px;
+  overflow: hidden;
+  padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #f9fbfc;
@@ -174,7 +312,7 @@ textarea {
   overflow: hidden;
   display: flex;
   align-items: center;
-  background: #f7f7f7;
+  background: var(--ticker-strip-color, #f7f7f7);
   border-top: 2px solid #ffffff;
   border-bottom: 2px solid #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
@@ -183,7 +321,7 @@ textarea {
 .output-page .ticker-stage {
   position: absolute;
   left: 0;
-  bottom: 64px;
+  bottom: var(--ticker-bottom, 64px);
   width: 1920px;
 }
 
@@ -191,7 +329,7 @@ textarea {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 8%;
+  bottom: var(--ticker-bottom-preview, 5.9259%);
 }
 
 .ticker-window {
@@ -208,13 +346,20 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 72px;
-  padding-left: 100%;
-  color: #111820;
+  padding-left: 1920px;
+  color: var(--ticker-font-color, #111820);
+  font-family: var(--ticker-font-family, Arial, "Noto Sans Devanagari", "Mangal", sans-serif);
   font-size: var(--ticker-size, 42px);
   font-weight: 800;
   line-height: 1.35;
   animation: scroll-left var(--ticker-duration, 28s) linear infinite;
   will-change: transform;
+}
+
+.ticker-track.is-static {
+  animation: none;
+  padding-left: 24px;
+  transform: none;
 }
 
 .ticker-copy {
@@ -226,7 +371,7 @@ textarea {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-100%);
+    transform: translateX(calc(-1 * var(--ticker-travel, 3840px)));
   }
 }
 
@@ -235,6 +380,9 @@ textarea {
   margin: 0 auto;
   color: var(--muted);
   line-height: 1.5;
+  max-height: 44px;
+  overflow: hidden;
+  word-break: break-all;
 }
 
 .helper code {
@@ -261,6 +409,10 @@ textarea {
   }
 
   .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .control-grid {
     grid-template-columns: 1fr;
   }
 

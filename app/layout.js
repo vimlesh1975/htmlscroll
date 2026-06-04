@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "CasparCG Hindi Scroll",
+  title: "CasparCG Scroll Scheduler",
   description: "Next.js ticker page and CasparCG AMCP controller"
 };
 

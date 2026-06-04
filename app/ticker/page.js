@@ -9,6 +9,10 @@ export default async function TickerPage({ searchParams }) {
   const speed = params?.speed || 28;
   const fontSize = params?.fontSize || 42;
   const height = params?.height || 108;
+  const bottom = params?.bottom || 64;
+  const stripColor = params?.stripColor || "#f7f7f7";
+  const fontColor = params?.fontColor || "#111820";
+  const fontFamily = params?.fontFamily || "Arial";
 
   return (
     <main className="output-page">
@@ -17,6 +21,10 @@ export default async function TickerPage({ searchParams }) {
         speed={speed}
         fontSize={fontSize}
         height={height}
+        bottom={bottom}
+        stripColor={stripColor}
+        fontColor={fontColor}
+        fontFamily={fontFamily}
       />
     </main>
   );
