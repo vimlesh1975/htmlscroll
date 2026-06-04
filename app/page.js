@@ -8,16 +8,18 @@ const DEFAULT_TEXT =
 
 const CHANNELS = ["1", "2", "3"];
 const STORAGE_KEY = "casparcg-scroll-scheduler-settings";
+const CHANNEL_FORMATS = {
+  HD: { label: "HD 1920x1080", width: "1920", height: "1080" },
+  SD: { label: "SD 720x576", width: "720", height: "576" }
+};
 
 const DEFAULT_CHANNEL_SETTINGS = {
-  text: DEFAULT_TEXT,
   layer: "20",
+  format: "HD",
   speed: "60",
   fontSize: "42",
   height: "108",
   bottom: "64",
-  canvasWidth: "1920",
-  canvasHeight: "1080",
   stripColor: "#f7f7f7",
   fontColor: "#111820",
   fontFamily: "Arial"
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS = {
   host: "127.0.0.1",
   port: "5250",
   timerMinutes: "1",
+  contentRows: [{ id: 1, selected: true, text: DEFAULT_TEXT }],
   selectedChannels: ["1"],
   activeChannel: "1",
   channelSettings: {
@@ -36,11 +39,25 @@ const DEFAULT_SETTINGS = {
   }
 };
 
+function getChannelDimensions(format) {
+  return CHANNEL_FORMATS[format] || CHANNEL_FORMATS.HD;
+}
+
+function inferChannelFormat(settings = {}) {
+  if (CHANNEL_FORMATS[settings.format]) return settings.format;
+  const width = Number(settings.canvasWidth);
+  const height = Number(settings.canvasHeight);
+  return width <= 720 || height <= 576 ? "SD" : "HD";
+}
+
 function normalizeChannelSettings(settings = {}) {
   return CHANNELS.reduce((acc, channel) => {
+    const channelSettings = settings[channel] || {};
+    const { canvasWidth, canvasHeight, ...storedSettings } = channelSettings;
     acc[channel] = {
       ...DEFAULT_CHANNEL_SETTINGS,
-      ...(settings[channel] || {})
+      ...storedSettings,
+      format: inferChannelFormat(channelSettings)
     };
     return acc;
   }, {});
@@ -83,6 +100,7 @@ export default function Home() {
   const [timerMinutes, setTimerMinutes] = useState(
     DEFAULT_SETTINGS.timerMinutes
   );
+  const [contentRows, setContentRows] = useState(DEFAULT_SETTINGS.contentRows);
   const [selectedChannels, setSelectedChannels] = useState(
     DEFAULT_SETTINGS.selectedChannels
   );
@@ -100,12 +118,23 @@ export default function Home() {
   const [status, setStatus] = useState("Ready.");
   const [cycleState, setCycleState] = useState("idle");
   const [busy, setBusy] = useState(false);
-  const cycleTimerRef = useRef(null);
+  const cycleDelayTimerRef = useRef(null);
+  const channelStopTimersRef = useRef([]);
   const cycleActiveRef = useRef(false);
   const cycleChannelsRef = useRef(DEFAULT_SETTINGS.selectedChannels);
   const cycleSettingsRef = useRef(DEFAULT_SETTINGS.channelSettings);
+  const cycleContentRef = useRef(DEFAULT_SETTINGS.content);
 
   const activeSettings = channelSettings[activeChannel];
+  const activeDimensions = getChannelDimensions(activeSettings.format);
+  const content = useMemo(
+    () =>
+      contentRows
+        .filter((row) => row.selected && row.text.trim())
+        .map((row) => row.text.trim())
+        .join(" "),
+    [contentRows]
+  );
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -114,9 +143,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const legacyText = saved.content || saved.text || DEFAULT_TEXT;
       const legacyChannelSettings = {
         "1": {
-          text: saved.text,
           layer: saved.layer,
           speed: saved.speed,
           fontSize: saved.fontSize,
@@ -131,6 +160,11 @@ export default function Home() {
       setHost(saved.host || DEFAULT_SETTINGS.host);
       setPort(saved.port || DEFAULT_SETTINGS.port);
       setTimerMinutes(saved.timerMinutes || DEFAULT_SETTINGS.timerMinutes);
+      setContentRows(
+        Array.isArray(saved.contentRows) && saved.contentRows.length > 0
+          ? saved.contentRows
+          : [{ id: 1, selected: true, text: legacyText }]
+      );
       setSelectedChannels(
         Array.isArray(saved.selectedChannels) && saved.selectedChannels.length > 0
           ? saved.selectedChannels
@@ -183,6 +217,7 @@ export default function Home() {
         host,
         port,
         timerMinutes,
+        contentRows,
         selectedChannels,
         activeChannel,
         channelSettings
@@ -192,6 +227,7 @@ export default function Home() {
     host,
     port,
     timerMinutes,
+    contentRows,
     selectedChannels,
     activeChannel,
     channelSettings,
@@ -200,7 +236,7 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      clearCycleTimer();
+      clearCycleTimers();
     };
   }, []);
 
@@ -220,30 +256,70 @@ export default function Home() {
     }));
   }
 
-  function buildTickerUrl(settings) {
+  function updateContentRow(id, patch) {
+    setContentRows((current) => {
+      if (patch.selected) {
+        return current.map((row) => ({
+          ...row,
+          selected: row.id === id
+        }));
+      }
+      if (Object.hasOwn(patch, "selected")) {
+        return current;
+      }
+      return current.map((row) => (row.id === id ? { ...row, ...patch } : row));
+    });
+  }
+
+  function addContentRow() {
+    setContentRows((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        selected: current.every((row) => !row.selected),
+        text: ""
+      }
+    ]);
+  }
+
+  function removeContentRow(id) {
+    setContentRows((current) => {
+      const removedWasSelected = current.find((row) => row.id === id)?.selected;
+      const next = current.filter((row) => row.id !== id);
+      if (next.length === 0) return DEFAULT_SETTINGS.contentRows;
+      if (!removedWasSelected) return next;
+      return next.map((row, index) => ({ ...row, selected: index === 0 }));
+    });
+  }
+
+  function buildTickerUrl(settings, text = content) {
     if (!origin) return "";
+    const dimensions = getChannelDimensions(settings.format);
     const url = new URL("/ticker", origin);
     url.hostname = host || "127.0.0.1";
-    url.searchParams.set("text", settings.text);
+    url.searchParams.set("text", text);
     url.searchParams.set("speed", settings.speed);
     url.searchParams.set("fontSize", settings.fontSize);
     url.searchParams.set("height", settings.height);
     url.searchParams.set("bottom", settings.bottom);
-    url.searchParams.set("canvasWidth", settings.canvasWidth);
-    url.searchParams.set("canvasHeight", settings.canvasHeight);
+    url.searchParams.set("canvasWidth", dimensions.width);
+    url.searchParams.set("canvasHeight", dimensions.height);
     url.searchParams.set("stripColor", settings.stripColor);
     url.searchParams.set("fontColor", settings.fontColor);
     url.searchParams.set("fontFamily", settings.fontFamily);
+    url.searchParams.set("loopCount", "1");
     url.searchParams.set(
       "v",
       [
         settings.speed,
-        settings.text?.length || 0,
+        text?.length || 0,
         settings.fontSize,
         settings.height,
         settings.bottom,
-        settings.canvasWidth,
-        settings.canvasHeight
+        settings.format,
+        dimensions.width,
+        dimensions.height,
+        "1"
       ].join("-")
     );
     return url.toString();
@@ -251,7 +327,7 @@ export default function Home() {
 
   const tickerUrl = useMemo(
     () => buildTickerUrl(activeSettings),
-    [origin, host, activeSettings]
+    [origin, host, activeSettings, content]
   );
 
   function toggleChannel(channel) {
@@ -264,21 +340,31 @@ export default function Home() {
     });
   }
 
-  async function sendCommands(action, channelsToUse, settingsByChannel) {
+  async function sendCommands(
+    action,
+    channelsToUse,
+    settingsByChannel,
+    text = content
+  ) {
     const results = await Promise.all(
       channelsToUse.map(async (channel) => {
         const settings = settingsByChannel[channel];
+        const payload = {
+          action,
+          host,
+          port,
+          channel,
+          layer: settings.layer
+        };
+
+        if (action !== "clear") {
+          payload.url = buildTickerUrl(settings, text);
+        }
+
         const response = await fetch("/api/caspar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action,
-            host,
-            port,
-            channel,
-            layer: settings.layer,
-            url: buildTickerUrl(settings)
-          })
+          body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (!response.ok || !data.ok) {
@@ -290,12 +376,27 @@ export default function Home() {
     return results;
   }
 
-  function clearCycleTimer() {
+  function getPlayDurationMs(settings, text = content) {
+    const dimensions = getChannelDimensions(settings.format);
+    const speedValue = Math.max(Number(settings.speed) || 60, 1);
+    const pixelsPerSecond = speedValue * 8;
+    const fontSize = Number(settings.fontSize) || 42;
+    const canvasWidth = Number(dimensions.width) || 1920;
+    const estimatedTextWidth = (text?.length || 120) * fontSize * 0.72 + 72;
+    const startOffset = canvasWidth;
+    const distance = estimatedTextWidth + startOffset;
+    const secondsPerLoop = Math.max(4, distance / pixelsPerSecond);
+    return secondsPerLoop * 1000;
+  }
+
+  function clearCycleTimers() {
     cycleActiveRef.current = false;
-    if (cycleTimerRef.current) {
-      window.clearTimeout(cycleTimerRef.current);
-      cycleTimerRef.current = null;
+    if (cycleDelayTimerRef.current) {
+      window.clearTimeout(cycleDelayTimerRef.current);
+      cycleDelayTimerRef.current = null;
     }
+    channelStopTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    channelStopTimersRef.current = [];
     setCycleState("idle");
   }
 
@@ -306,80 +407,105 @@ export default function Home() {
     try {
       const channelsSnapshot = [...selectedChannels];
       const settingsSnapshot = JSON.parse(JSON.stringify(channelSettings));
+      const contentSnapshot = content;
 
-      if (action === "clear") {
-        clearCycleTimer();
-      }
+      clearCycleTimers();
 
       const results = await sendCommands(
         action,
         channelsSnapshot,
-        settingsSnapshot
+        settingsSnapshot,
+        contentSnapshot
       );
 
       if (action === "play") {
-        clearCycleTimer();
-        const minutes = Math.max(Number(timerMinutes) || 1, 0.1);
-        const intervalMs = minutes * 60 * 1000;
+        const waitMinutes = Math.max(Number(timerMinutes) || 1, 0.1);
+        const waitMs = waitMinutes * 60 * 1000;
         cycleActiveRef.current = true;
         cycleChannelsRef.current = channelsSnapshot;
         cycleSettingsRef.current = settingsSnapshot;
+        cycleContentRef.current = contentSnapshot;
         setCycleState("playing");
 
         const schedulePlay = () => {
-          cycleTimerRef.current = window.setTimeout(async () => {
+          cycleDelayTimerRef.current = window.setTimeout(async () => {
             if (!cycleActiveRef.current) return;
+            cycleDelayTimerRef.current = null;
             try {
               const playResults = await sendCommands(
                 "play",
                 cycleChannelsRef.current,
-                cycleSettingsRef.current
+                cycleSettingsRef.current,
+                cycleContentRef.current
               );
               setStatus(
-                `${playResults.join("\n")}\nPlaying for ${minutes} minute(s), then stop again.`
+                `${playResults.join("\n")}\nPlaying 1 loop, each channel stops independently.`
               );
               setCycleState("playing");
-              scheduleStop();
+              scheduleChannelStops();
             } catch (error) {
-              cycleActiveRef.current = false;
-              cycleTimerRef.current = null;
+              clearCycleTimers();
               setCycleState("idle");
               setStatus(
                 error instanceof Error ? error.message : "Cycle play failed."
               );
             }
-          }, intervalMs);
+          }, waitMs);
         };
 
-        const scheduleStop = () => {
-          cycleTimerRef.current = window.setTimeout(async () => {
-            if (!cycleActiveRef.current) return;
-            try {
-              const stopResults = await sendCommands(
-                "clear",
-                cycleChannelsRef.current,
-                cycleSettingsRef.current
+        const scheduleChannelStops = () => {
+          const pendingChannels = new Set(cycleChannelsRef.current);
+          channelStopTimersRef.current.forEach((timer) =>
+            window.clearTimeout(timer)
+          );
+          channelStopTimersRef.current = cycleChannelsRef.current.map(
+            (channel) => {
+              const playDurationMs = getPlayDurationMs(
+                cycleSettingsRef.current[channel],
+                cycleContentRef.current
               );
-              setStatus(
-                `${stopResults.join("\n")}\nStopped for ${minutes} minute(s), then play again.`
-              );
-              setCycleState("waiting");
-              schedulePlay();
-            } catch (error) {
-              cycleActiveRef.current = false;
-              cycleTimerRef.current = null;
-              setCycleState("idle");
-              setStatus(
-                error instanceof Error ? error.message : "Cycle stop failed."
-              );
+
+              return window.setTimeout(async () => {
+                if (!cycleActiveRef.current) return;
+                try {
+                  const stopResults = await sendCommands(
+                    "clear",
+                    [channel],
+                    cycleSettingsRef.current,
+                    cycleContentRef.current
+                  );
+                  pendingChannels.delete(channel);
+
+                  if (pendingChannels.size > 0) {
+                    setStatus(
+                      `${stopResults.join("\n")}\nWaiting for CH ${[
+                        ...pendingChannels
+                      ].join(", ")} to finish.`
+                    );
+                    return;
+                  }
+
+                  channelStopTimersRef.current = [];
+                  setStatus(
+                    `${stopResults.join("\n")}\nAll selected channels stopped. Restarting after ${waitMinutes} minute(s).`
+                  );
+                  setCycleState("waiting");
+                  schedulePlay();
+                } catch (error) {
+                  clearCycleTimers();
+                  setStatus(
+                    error instanceof Error ? error.message : "Cycle stop failed."
+                  );
+                }
+              }, playDurationMs);
             }
-          }, intervalMs);
+          );
         };
 
-        scheduleStop();
+        scheduleChannelStops();
 
         setStatus(
-          `${results.join("\n")}\nCycle started: play ${minutes} minute(s), stop ${minutes} minute(s), repeat.`
+          `${results.join("\n")}\nCycle started: play 1 loop, stop each channel at loop finish, wait ${waitMinutes} minute(s), repeat.`
         );
       } else {
         setStatus(`${results.join("\n")}\nCycle stopped.`);
@@ -401,6 +527,75 @@ export default function Home() {
         </p>
 
         <div className="form">
+          <div className="actions top-actions">
+            <button
+              className="button"
+              disabled={busy}
+              onClick={() => sendToCaspar("play")}
+            >
+              Play on CasparCG
+            </button>
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => sendToCaspar("clear")}
+            >
+              Stop Layer
+            </button>
+            <button
+              className="button ghost"
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(tickerUrl)}
+            >
+              Copy CH{activeChannel} URL
+            </button>
+          </div>
+
+          <div className="field">
+            <span className="label">
+              Global content
+              <button className="mini-button" type="button" onClick={addContentRow}>
+                Add
+              </button>
+            </span>
+            <div className="content-grid" role="grid">
+              <div className="content-grid-head" role="row">
+                <span>Use</span>
+                <span>Text</span>
+                <span />
+              </div>
+              {contentRows.map((row) => (
+                <div className="content-grid-row" role="row" key={row.id}>
+                  <input
+                    aria-label="Use row"
+                    type="checkbox"
+                    checked={row.selected}
+                    onChange={(event) =>
+                      updateContentRow(row.id, {
+                        selected: event.target.checked
+                      })
+                    }
+                  />
+                  <input
+                    className="input"
+                    value={row.text}
+                    onChange={(event) =>
+                      updateContentRow(row.id, { text: event.target.value })
+                    }
+                  />
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Remove row"
+                    onClick={() => removeContentRow(row.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="field-row">
             <label className="field">
               <span className="label">CasparCG host</span>
@@ -422,7 +617,7 @@ export default function Home() {
           </div>
 
           <NumberControl
-            label="Global timer"
+            label="Restart delay"
             value={timerMinutes}
             onChange={setTimerMinutes}
             min="0.1"
@@ -434,9 +629,9 @@ export default function Home() {
           <div className={`timer-badge ${cycleState}`}>
             <span className="timer-dot" />
             {cycleState === "playing"
-              ? `Timer active: playing for ${timerMinutes} min`
+              ? "Timer active: playing 1 loop"
               : cycleState === "waiting"
-                ? `Timer active: stopped for ${timerMinutes} min`
+                ? `Timer active: waiting ${timerMinutes} min`
                 : "Timer inactive"}
           </div>
 
@@ -476,28 +671,7 @@ export default function Home() {
             </div>
           </div>
 
-          <label className="field">
-            <span className="label">Ticker text for CH{activeChannel}</span>
-            <textarea
-              className="textarea"
-              value={activeSettings.text}
-              onChange={(event) => updateActiveChannel("text", event.target.value)}
-            />
-          </label>
-
           <div className="field-row">
-            <label className="field">
-              <span className="label">Layer</span>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                value={activeSettings.layer}
-                onChange={(event) =>
-                  updateActiveChannel("layer", event.target.value)
-                }
-              />
-            </label>
             <label className="field">
               <span className="label">Font family</span>
               <select
@@ -517,6 +691,34 @@ export default function Home() {
           </div>
 
           <div className="control-grid">
+            <label className="field">
+              <span className="label">Layer</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                value={activeSettings.layer}
+                onChange={(event) =>
+                  updateActiveChannel("layer", event.target.value)
+                }
+              />
+            </label>
+            <label className="field">
+              <span className="label">Channel format</span>
+              <select
+                className="input"
+                value={activeSettings.format}
+                onChange={(event) =>
+                  updateActiveChannel("format", event.target.value)
+                }
+              >
+                {Object.entries(CHANNEL_FORMATS).map(([format, details]) => (
+                  <option key={format} value={format}>
+                    {details.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <NumberControl
               label="Speed"
               value={activeSettings.speed}
@@ -549,22 +751,6 @@ export default function Home() {
               max="180"
               suffix="px"
             />
-            <NumberControl
-              label="Canvas width"
-              value={activeSettings.canvasWidth}
-              onChange={(value) => updateActiveChannel("canvasWidth", value)}
-              min="320"
-              max="3840"
-              suffix="px"
-            />
-            <NumberControl
-              label="Canvas height"
-              value={activeSettings.canvasHeight}
-              onChange={(value) => updateActiveChannel("canvasHeight", value)}
-              min="240"
-              max="2160"
-              suffix="px"
-            />
           </div>
 
           <div className="field-row">
@@ -592,30 +778,6 @@ export default function Home() {
             </label>
           </div>
 
-          <div className="actions">
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => sendToCaspar("play")}
-            >
-              Play on CasparCG
-            </button>
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => sendToCaspar("clear")}
-            >
-              Stop Layer
-            </button>
-            <button
-              className="button ghost"
-              type="button"
-              onClick={() => navigator.clipboard?.writeText(tickerUrl)}
-            >
-              Copy CH{activeChannel} URL
-            </button>
-          </div>
-
           <div className="status">{status}</div>
         </div>
       </section>
@@ -624,22 +786,21 @@ export default function Home() {
         <div
           className="preview-frame"
           style={{
-            "--preview-aspect": `${Number(activeSettings.canvasWidth) || 1920} / ${
-              Number(activeSettings.canvasHeight) || 1080
-            }`
+            "--preview-aspect": `${activeDimensions.width} / ${activeDimensions.height}`
           }}
         >
           <Ticker
-            text={activeSettings.text}
+            text={content}
             speed={activeSettings.speed}
             fontSize={activeSettings.fontSize}
             height={activeSettings.height}
             bottom={activeSettings.bottom}
-            canvasWidth={activeSettings.canvasWidth}
-            canvasHeight={activeSettings.canvasHeight}
+            canvasWidth={activeDimensions.width}
+            canvasHeight={activeDimensions.height}
             stripColor={activeSettings.stripColor}
             fontColor={activeSettings.fontColor}
             fontFamily={activeSettings.fontFamily}
+            loopCount="1"
             animate={false}
           />
         </div>

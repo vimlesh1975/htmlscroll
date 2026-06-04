@@ -11,7 +11,8 @@ function getInitialTiming({ text, speed, fontSize, canvasWidth }) {
   const size = Number(fontSize) || 42;
   const outputWidth = Number(canvasWidth) || 1920;
   const estimatedTextWidth = (text?.length || 120) * size * 0.72 + 72;
-  const distance = estimatedTextWidth + outputWidth;
+  const startOffset = outputWidth;
+  const distance = estimatedTextWidth + startOffset;
 
   return {
     duration: Math.max(4, distance / pixelsPerSecond),
@@ -30,6 +31,7 @@ export default function Ticker({
   stripColor = "#f7f7f7",
   fontColor = "#111820",
   fontFamily = "Arial",
+  loopCount = 1,
   animate = true
 }) {
   const safeText = text?.trim() || DEFAULT_TEXT;
@@ -48,11 +50,13 @@ export default function Ticker({
   const bottomPx = Number(bottom) || 64;
   const outputWidth = Number(canvasWidth) || 1920;
   const outputHeight = Number(canvasHeight) || 1080;
+  const startOffset = outputWidth;
   const bottomPercent = `${(bottomPx / outputHeight) * 100}%`;
   const heightPercent = `${((Number(height) || 108) / outputHeight) * 100}%`;
   const bottomViewport = `${(bottomPx / outputHeight) * 100}vh`;
   const heightViewport = `${((Number(height) || 108) / outputHeight) * 100}vh`;
   const fontSizeViewport = `${((Number(fontSize) || 42) / outputHeight) * 100}vh`;
+  const loops = Math.max(Math.floor(Number(loopCount) || 1), 1);
 
   useEffect(() => {
     if (!animate) {
@@ -81,10 +85,10 @@ export default function Ticker({
     const firstCopy = track.querySelector(".ticker-copy");
     const copyWidth = firstCopy?.scrollWidth || firstCopy?.offsetWidth || 0;
     const width = copyWidth > 0 ? copyWidth + 72 : track.scrollWidth || 1920;
-    const distance = width + viewportWidth;
+    const distance = width + startOffset;
     setTravelDistance(distance);
     setDuration(Math.max(4, distance / pixelsPerSecond));
-  }, [safeText, speed, fontSize, fontFamily, viewportWidth]);
+  }, [safeText, speed, fontSize, fontFamily, outputWidth]);
 
   const animationKey = [
     safeText,
@@ -116,7 +120,8 @@ export default function Ticker({
         "--ticker-font-color": fontColor,
         "--ticker-font-family": fontFamily,
         "--ticker-travel": `${travelDistance}px`,
-        "--ticker-start": animate ? "100vw" : `${outputWidth}px`
+        "--ticker-start": `${startOffset}px`,
+        "--ticker-iterations": loops
       }}
     >
       <div className="ticker-window" aria-label="Scrolling news ticker">
@@ -126,9 +131,6 @@ export default function Ticker({
           ref={trackRef}
         >
           <span className="ticker-copy">{safeText}</span>
-          <span className="ticker-copy" aria-hidden="true">
-            {safeText}
-          </span>
         </div>
       </div>
     </div>

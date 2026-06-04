@@ -15,6 +15,7 @@ export default async function TickerPage({ searchParams }) {
   const stripColor = params?.stripColor || "#f7f7f7";
   const fontColor = params?.fontColor || "#111820";
   const fontFamily = params?.fontFamily || "Arial";
+  const loopCount = params?.loopCount || 1;
 
   return (
     <main className="output-page">
@@ -29,6 +30,7 @@ export default async function TickerPage({ searchParams }) {
         stripColor={stripColor}
         fontColor={fontColor}
         fontFamily={fontFamily}
+        loopCount={loopCount}
       />
     </main>
   );
