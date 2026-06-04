@@ -291,15 +291,16 @@ select {
   overflow: hidden;
   border: 1px solid #1b242c;
   background: #081119;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--preview-aspect, 16 / 9);
   width: min(100%, 960px);
   margin: 0 auto;
   position: relative;
+  container-type: size;
 }
 
 .output-page {
-  width: 1920px;
-  height: 1080px;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
   background: transparent;
   position: relative;
@@ -321,8 +322,13 @@ select {
 .output-page .ticker-stage {
   position: absolute;
   left: 0;
-  bottom: var(--ticker-bottom, 64px);
-  width: 1920px;
+  bottom: var(--ticker-bottom-live, 5.9259vh);
+  width: 100vw;
+  height: var(--ticker-height-live, 10vh);
+}
+
+.output-page .ticker-track {
+  font-size: var(--ticker-size-live, 3.8889vh);
 }
 
 .preview-frame .ticker-stage {
@@ -330,6 +336,11 @@ select {
   left: 0;
   right: 0;
   bottom: var(--ticker-bottom-preview, 5.9259%);
+  height: var(--ticker-height-preview, 10%);
+}
+
+.preview-frame .ticker-track {
+  font-size: var(--ticker-size-preview, 3.8889cqh);
 }
 
 .ticker-window {
@@ -346,7 +357,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 72px;
-  padding-left: 1920px;
+  padding-left: var(--ticker-start, 1920px);
   color: var(--ticker-font-color, #111820);
   font-family: var(--ticker-font-family, Arial, "Noto Sans Devanagari", "Mangal", sans-serif);
   font-size: var(--ticker-size, 42px);

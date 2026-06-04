@@ -10,6 +10,8 @@ export default async function TickerPage({ searchParams }) {
   const fontSize = params?.fontSize || 42;
   const height = params?.height || 108;
   const bottom = params?.bottom || 64;
+  const canvasWidth = params?.canvasWidth || 1920;
+  const canvasHeight = params?.canvasHeight || 1080;
   const stripColor = params?.stripColor || "#f7f7f7";
   const fontColor = params?.fontColor || "#111820";
   const fontFamily = params?.fontFamily || "Arial";
@@ -22,6 +24,8 @@ export default async function TickerPage({ searchParams }) {
         fontSize={fontSize}
         height={height}
         bottom={bottom}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
         stripColor={stripColor}
         fontColor={fontColor}
         fontFamily={fontFamily}

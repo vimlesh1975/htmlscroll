@@ -16,6 +16,8 @@ const DEFAULT_CHANNEL_SETTINGS = {
   fontSize: "42",
   height: "108",
   bottom: "64",
+  canvasWidth: "1920",
+  canvasHeight: "1080",
   stripColor: "#f7f7f7",
   fontColor: "#111820",
   fontFamily: "Arial"
@@ -99,6 +101,8 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const cycleTimerRef = useRef(null);
   const cycleActiveRef = useRef(false);
+  const cycleChannelsRef = useRef(DEFAULT_SETTINGS.selectedChannels);
+  const cycleSettingsRef = useRef(DEFAULT_SETTINGS.channelSettings);
 
   const activeSettings = channelSettings[activeChannel];
 
@@ -220,9 +224,23 @@ export default function Home() {
     url.searchParams.set("fontSize", settings.fontSize);
     url.searchParams.set("height", settings.height);
     url.searchParams.set("bottom", settings.bottom);
+    url.searchParams.set("canvasWidth", settings.canvasWidth);
+    url.searchParams.set("canvasHeight", settings.canvasHeight);
     url.searchParams.set("stripColor", settings.stripColor);
     url.searchParams.set("fontColor", settings.fontColor);
     url.searchParams.set("fontFamily", settings.fontFamily);
+    url.searchParams.set(
+      "v",
+      [
+        settings.speed,
+        settings.text?.length || 0,
+        settings.fontSize,
+        settings.height,
+        settings.bottom,
+        settings.canvasWidth,
+        settings.canvasHeight
+      ].join("-")
+    );
     return url.toString();
   }
 
@@ -299,6 +317,8 @@ export default function Home() {
         const minutes = Math.max(Number(timerMinutes) || 1, 0.1);
         const intervalMs = minutes * 60 * 1000;
         cycleActiveRef.current = true;
+        cycleChannelsRef.current = channelsSnapshot;
+        cycleSettingsRef.current = settingsSnapshot;
         setCycleState("playing");
 
         const schedulePlay = () => {
@@ -307,8 +327,8 @@ export default function Home() {
             try {
               const playResults = await sendCommands(
                 "play",
-                channelsSnapshot,
-                settingsSnapshot
+                cycleChannelsRef.current,
+                cycleSettingsRef.current
               );
               setStatus(
                 `${playResults.join("\n")}\nPlaying for ${minutes} minute(s), then stop again.`
@@ -332,8 +352,8 @@ export default function Home() {
             try {
               const stopResults = await sendCommands(
                 "clear",
-                channelsSnapshot,
-                settingsSnapshot
+                cycleChannelsRef.current,
+                cycleSettingsRef.current
               );
               setStatus(
                 `${stopResults.join("\n")}\nStopped for ${minutes} minute(s), then play again.`
@@ -496,8 +516,8 @@ export default function Home() {
               label="Speed"
               value={activeSettings.speed}
               onChange={(value) => updateActiveChannel("speed", value)}
-              min="10"
-              max="84"
+              min="1"
+              max="100"
               suffix=""
             />
             <NumberControl
@@ -522,6 +542,22 @@ export default function Home() {
               onChange={(value) => updateActiveChannel("height", value)}
               min="60"
               max="180"
+              suffix="px"
+            />
+            <NumberControl
+              label="Canvas width"
+              value={activeSettings.canvasWidth}
+              onChange={(value) => updateActiveChannel("canvasWidth", value)}
+              min="320"
+              max="3840"
+              suffix="px"
+            />
+            <NumberControl
+              label="Canvas height"
+              value={activeSettings.canvasHeight}
+              onChange={(value) => updateActiveChannel("canvasHeight", value)}
+              min="240"
+              max="2160"
               suffix="px"
             />
           </div>
@@ -580,13 +616,22 @@ export default function Home() {
       </section>
 
       <section className="preview-panel">
-        <div className="preview-frame">
+        <div
+          className="preview-frame"
+          style={{
+            "--preview-aspect": `${Number(activeSettings.canvasWidth) || 1920} / ${
+              Number(activeSettings.canvasHeight) || 1080
+            }`
+          }}
+        >
           <Ticker
             text={activeSettings.text}
             speed={activeSettings.speed}
             fontSize={activeSettings.fontSize}
             height={activeSettings.height}
             bottom={activeSettings.bottom}
+            canvasWidth={activeSettings.canvasWidth}
+            canvasHeight={activeSettings.canvasHeight}
             stripColor={activeSettings.stripColor}
             fontColor={activeSettings.fontColor}
             fontFamily={activeSettings.fontFamily}
