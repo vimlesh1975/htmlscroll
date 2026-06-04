@@ -175,8 +175,8 @@ textarea {
   display: flex;
   align-items: center;
   background: #f7f7f7;
-  border-top: 4px solid #ffffff;
-  border-bottom: 4px solid #ffffff;
+  border-top: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
@@ -199,6 +199,9 @@ textarea {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .ticker-track {
@@ -209,7 +212,7 @@ textarea {
   color: #111820;
   font-size: var(--ticker-size, 42px);
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.35;
   animation: scroll-left var(--ticker-duration, 28s) linear infinite;
   will-change: transform;
 }

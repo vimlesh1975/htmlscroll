@@ -8,7 +8,7 @@ export default async function TickerPage({ searchParams }) {
   const text = params?.text || DEFAULT_TEXT;
   const speed = params?.speed || 28;
   const fontSize = params?.fontSize || 42;
-  const height = params?.height || 92;
+  const height = params?.height || 108;
 
   return (
     <main className="output-page">

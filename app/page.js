@@ -14,7 +14,7 @@ export default function Home() {
   const [layer, setLayer] = useState("20");
   const [speed, setSpeed] = useState("28");
   const [fontSize, setFontSize] = useState("42");
-  const [height, setHeight] = useState("92");
+  const [height, setHeight] = useState("108");
   const [status, setStatus] = useState("Ready.");
   const [busy, setBusy] = useState(false);
 

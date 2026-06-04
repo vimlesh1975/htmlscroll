@@ -7,7 +7,7 @@ export default function Ticker({
   text = DEFAULT_TEXT,
   speed = 28,
   fontSize = 42,
-  height = 92
+  height = 108
 }) {
   const safeText = text?.trim() || DEFAULT_TEXT;
 
@@ -17,7 +17,7 @@ export default function Ticker({
       style={{
         "--ticker-duration": `${Number(speed) || 28}s`,
         "--ticker-size": `${Number(fontSize) || 42}px`,
-        "--ticker-height": `${Number(height) || 92}px`
+        "--ticker-height": `${Number(height) || 108}px`
       }}
     >
       <div className="ticker-window" aria-label="Scrolling news ticker">
