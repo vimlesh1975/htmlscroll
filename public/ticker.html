@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CasparCG Ticker</title>
+</head>
+<body>
+  <style type="text/css">
+    BODY {
+      width: 1920px;
+      height: 1080px;
+      margin: 0px;
+      overflow: hidden;
+      background-color: transparent;
+    }
+
+    #htmlscroller {
+      background-color: #D0D0D0;
+      border-width: 0px;
+      border-style: none;
+      box-sizing: border-box;
+      position: absolute;
+      width: 1920px;
+      height: 96px;
+      top: 920px;
+      left: 0px;
+    }
+
+    #marqueedata {
+      font-size: 52px;
+      font-family: Arial, Mangal;
+      font-weight: bold;
+      white-space: nowrap;
+      color: Black;
+      text-shadow: none;
+      position: absolute;
+      top: 940px;
+      left: 1920px;
+    }
+  </style>
+
+  <div id="htmlscroller"></div>
+  <div id="marqueedata">दिल्ली के मालवीय नगर स्थित एक 5 मंजिला होटल में बुधवार को सुबह भीषण आग लगने से 21 लोगों की मौत हो गई। इस घटना को लेकर पुलिस ने केस दर्ज कर लिया है। दिल्ली पुलिस के साथ एमसीडी भी जांच में जुट गई है।</div>
+
+  <script type="text/javascript">
+	var elm = document.getElementById("marqueedata");
+	var elmwidth = elm.offsetWidth;
+	var winwidth = 1920;
+        var x = winwidth;
+        var pixelsPerTick = 2;
+        var timerId = 0;
+
+        function render1() {
+            x = x - pixelsPerTick;
+            if (x < (0 - elmwidth)) {
+                elmwidth = elm.offsetWidth;
+                x = winwidth;
+            }
+            elm.style.left = x + "px";
+        }
+
+        function start1() {
+            stop();
+            x = winwidth;
+            elm.style.left = x + "px";
+        timerId = window.setInterval(render1, 25);
+        }
+
+        function stop() {
+            if (timerId) {
+                window.clearInterval(timerId);
+                timerId = 0;
+            }
+        }
+
+        start1();
+  </script>
+</body>
+</html>
