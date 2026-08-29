@@ -47,10 +47,11 @@ export default function Ticker({
     initialTiming.travelDistance
   );
   const [viewportWidth, setViewportWidth] = useState(Number(canvasWidth) || 1920);
+  const [isFinished, setIsFinished] = useState(false);
   const bottomPx = Number(bottom) || 64;
   const outputWidth = Number(canvasWidth) || 1920;
   const outputHeight = Number(canvasHeight) || 1080;
-  const startOffset = outputWidth;
+  const startOffset = animate ? viewportWidth : outputWidth;
   const bottomPercent = `${(bottomPx / outputHeight) * 100}%`;
   const heightPercent = `${((Number(height) || 108) / outputHeight) * 100}%`;
   const bottomViewport = `${(bottomPx / outputHeight) * 100}vh`;
@@ -59,13 +60,18 @@ export default function Ticker({
   const loops = Math.max(Math.floor(Number(loopCount) || 1), 1);
 
   useEffect(() => {
+    setIsFinished(false);
+  }, [safeText, speed, fontSize, fontFamily, canvasWidth, canvasHeight, loopCount]);
+
+  useEffect(() => {
     if (!animate) {
       setViewportWidth(outputWidth);
       return;
     }
 
     function syncViewport() {
-      setViewportWidth(window.innerWidth || outputWidth);
+      const currentWidth = window.innerWidth || outputWidth;
+      setViewportWidth(currentWidth);
     }
 
     syncViewport();
@@ -84,11 +90,14 @@ export default function Ticker({
     const pixelsPerSecond = speedValue * 8;
     const firstCopy = track.querySelector(".ticker-copy");
     const copyWidth = firstCopy?.scrollWidth || firstCopy?.offsetWidth || 0;
-    const width = copyWidth > 0 ? copyWidth + 72 : track.scrollWidth || 1920;
-    const distance = width + startOffset;
+    const actualWidth = animate && typeof window !== "undefined"
+      ? (window.innerWidth || outputWidth)
+      : outputWidth;
+    const textWidth = copyWidth > 0 ? copyWidth + 72 : (track.scrollWidth || actualWidth);
+    const distance = textWidth + actualWidth + 100;
     setTravelDistance(distance);
     setDuration(Math.max(4, distance / pixelsPerSecond));
-  }, [safeText, speed, fontSize, fontFamily, outputWidth]);
+  }, [safeText, speed, fontSize, fontFamily, outputWidth, viewportWidth, animate]);
 
   const animationKey = [
     safeText,
@@ -126,9 +135,14 @@ export default function Ticker({
     >
       <div className="ticker-window" aria-label="Scrolling news ticker">
         <div
-          className={`ticker-track${animate ? "" : " is-static"}`}
+          className={`ticker-track${animate ? "" : " is-static"}${isFinished ? " is-finished" : ""}`}
           key={animationKey}
           ref={trackRef}
+          onAnimationEnd={() => {
+            if (animate) {
+              setIsFinished(true);
+            }
+          }}
         >
           <span className="ticker-copy">{safeText}</span>
         </div>

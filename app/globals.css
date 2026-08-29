@@ -495,7 +495,7 @@ select.input {
   display: inline-flex;
   align-items: center;
   gap: 72px;
-  padding-left: var(--ticker-start, 1920px);
+  padding-left: var(--ticker-start, 100vw);
   color: var(--ticker-font-color, #111820);
   font-family: var(--ticker-font-family, Arial, "Noto Sans Devanagari", "Mangal", sans-serif);
   font-size: var(--ticker-size, 42px);
@@ -503,7 +503,13 @@ select.input {
   line-height: 1.35;
   animation: scroll-left var(--ticker-duration, 28s) linear infinite;
   animation-iteration-count: var(--ticker-iterations, infinite);
+  animation-fill-mode: forwards;
   will-change: transform;
+}
+
+.ticker-track.is-finished {
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 .ticker-track.is-static {
