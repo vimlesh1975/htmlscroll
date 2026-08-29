@@ -2,8 +2,7 @@ module.exports = {
   apps: [
     {
       name: "htmlscroll",
-      script: "node_modules/next/dist/bin/next",
-      args: "dev -p 19000",
+      script: "server.js",
       instances: 1,
       autorestart: true,
       watch: false,
@@ -14,8 +13,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: "production",
-        PORT: 19000,
-        args: "start -p 19000"
+        PORT: 19000
       }
     }
   ]
