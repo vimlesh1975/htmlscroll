@@ -55,6 +55,7 @@ select {
   align-content: center;
   gap: 14px;
   padding: 24px;
+  background: #fbfdff;
 }
 
 .title {
@@ -526,6 +527,7 @@ select.input {
   from {
     transform: translateX(0);
   }
+
   to {
     transform: translateX(calc(-1 * var(--ticker-travel, 3840px)));
   }
