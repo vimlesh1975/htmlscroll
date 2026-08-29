@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Ticker from "./components/Ticker";
 
 const DEFAULT_TEXT =
-  "दिल्ली के मालवीय नगर स्थित एक 5 मंजिला होटल में बुधवार को सुबह भीषण आग लगने से 21 लोगों की मौत हो गई। इस घटना को लेकर पुलिस ने केस दर्ज कर लिया है। दिल्ली पुलिस के साथ एमसीडी भी जांच में जुट गई है।";
+  "दिल्ली के मालवीय नगर स्थित एक 5 मंजिला होटल में बुधवार को सुबह भीषण आग लगने से 21 लोगों की मौत हो गई। इस घटना को लेकर पुलिस ने केस दर्ज कर लिया है।";
 
 const CHANNELS = ["1", "2", "3"];
 const STORAGE_KEY = "casparcg-scroll-scheduler-settings";
@@ -28,7 +28,6 @@ const DEFAULT_CHANNEL_SETTINGS = {
 const DEFAULT_SETTINGS = {
   host: "127.0.0.1",
   port: "5250",
-  timerMinutes: "1",
   contentRows: [{ id: 1, selected: true, text: DEFAULT_TEXT }],
   selectedChannels: ["1"],
   activeChannel: "1",
@@ -54,9 +53,12 @@ function normalizeChannelSettings(settings = {}) {
   return CHANNELS.reduce((acc, channel) => {
     const channelSettings = settings[channel] || {};
     const { canvasWidth, canvasHeight, ...storedSettings } = channelSettings;
+    const definedStoredSettings = Object.fromEntries(
+      Object.entries(storedSettings).filter(([_, v]) => v !== undefined && v !== null)
+    );
     acc[channel] = {
       ...DEFAULT_CHANNEL_SETTINGS,
-      ...storedSettings,
+      ...definedStoredSettings,
       format: inferChannelFormat(channelSettings)
     };
     return acc;
@@ -70,24 +72,18 @@ function NumberControl({
   min,
   max,
   step = 1,
-  suffix
+  className = ""
 }) {
   return (
-    <label className="field numeric-field">
-      <span className="label">
-        {label}
-        <strong>
-          {value}
-          {suffix}
-        </strong>
-      </span>
+    <label className={`field numeric-field ${className}`.trim()}>
+      <span className="label">{label}</span>
       <input
         className="input"
         type="number"
         min={min}
         max={max}
         step={step}
-        value={value}
+        value={value ?? ""}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
@@ -97,9 +93,6 @@ function NumberControl({
 export default function Home() {
   const [host, setHost] = useState(DEFAULT_SETTINGS.host);
   const [port, setPort] = useState(DEFAULT_SETTINGS.port);
-  const [timerMinutes, setTimerMinutes] = useState(
-    DEFAULT_SETTINGS.timerMinutes
-  );
   const [contentRows, setContentRows] = useState(DEFAULT_SETTINGS.contentRows);
   const [selectedChannels, setSelectedChannels] = useState(
     DEFAULT_SETTINGS.selectedChannels
@@ -116,22 +109,15 @@ export default function Home() {
   const [origin, setOrigin] = useState("");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState("Ready.");
-  const [cycleState, setCycleState] = useState("idle");
   const [busy, setBusy] = useState(false);
-  const cycleDelayTimerRef = useRef(null);
-  const channelStopTimersRef = useRef([]);
-  const cycleActiveRef = useRef(false);
-  const cycleChannelsRef = useRef(DEFAULT_SETTINGS.selectedChannels);
-  const cycleSettingsRef = useRef(DEFAULT_SETTINGS.channelSettings);
-  const cycleContentRef = useRef(DEFAULT_SETTINGS.content);
 
-  const activeSettings = channelSettings[activeChannel];
+  const activeSettings = channelSettings[activeChannel] || DEFAULT_CHANNEL_SETTINGS;
   const activeDimensions = getChannelDimensions(activeSettings.format);
   const content = useMemo(
     () =>
       contentRows
-        .filter((row) => row.selected && row.text.trim())
-        .map((row) => row.text.trim())
+        .filter((row) => row.selected && (row.text || "").trim())
+        .map((row) => (row.text || "").trim())
         .join(" "),
     [contentRows]
   );
@@ -145,26 +131,36 @@ export default function Home() {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
       const legacyText = saved.content || saved.text || DEFAULT_TEXT;
       const legacyChannelSettings = {
-        "1": {
-          layer: saved.layer,
-          speed: saved.speed,
-          fontSize: saved.fontSize,
-          height: saved.height,
-          bottom: saved.bottom,
-          stripColor: saved.stripColor,
-          fontColor: saved.fontColor,
-          fontFamily: saved.fontFamily
-        }
+        "1": Object.fromEntries(
+          Object.entries({
+            layer: saved.layer,
+            speed: saved.speed,
+            fontSize: saved.fontSize,
+            height: saved.height,
+            bottom: saved.bottom,
+            stripColor: saved.stripColor,
+            fontColor: saved.fontColor,
+            fontFamily: saved.fontFamily
+          }).filter(([_, v]) => v !== undefined && v !== null)
+        )
       };
 
       setHost(saved.host || DEFAULT_SETTINGS.host);
       setPort(saved.port || DEFAULT_SETTINGS.port);
-      setTimerMinutes(saved.timerMinutes || DEFAULT_SETTINGS.timerMinutes);
-      setContentRows(
-        Array.isArray(saved.contentRows) && saved.contentRows.length > 0
-          ? saved.contentRows
-          : [{ id: 1, selected: true, text: legacyText }]
-      );
+
+      const parsedRows = Array.isArray(saved.contentRows) && saved.contentRows.length > 0
+        ? saved.contentRows.map((row, index) => ({
+          id: row?.id ?? Date.now() + index,
+          selected: Boolean(row?.selected),
+          text: typeof row?.text === "string" ? row.text : (typeof row === "string" ? row : "")
+        }))
+        : [{ id: 1, selected: true, text: legacyText }];
+
+      if (!parsedRows.some((r) => r.selected) && parsedRows.length > 0) {
+        parsedRows[0].selected = true;
+      }
+
+      setContentRows(parsedRows);
       setSelectedChannels(
         Array.isArray(saved.selectedChannels) && saved.selectedChannels.length > 0
           ? saved.selectedChannels
@@ -216,7 +212,6 @@ export default function Home() {
       JSON.stringify({
         host,
         port,
-        timerMinutes,
         contentRows,
         selectedChannels,
         activeChannel,
@@ -226,7 +221,6 @@ export default function Home() {
   }, [
     host,
     port,
-    timerMinutes,
     contentRows,
     selectedChannels,
     activeChannel,
@@ -234,16 +228,11 @@ export default function Home() {
     settingsLoaded
   ]);
 
-  useEffect(() => {
-    return () => {
-      clearCycleTimers();
-    };
-  }, []);
-
   const visibleFontOptions = useMemo(() => {
-    return fontOptions.includes(activeSettings.fontFamily)
-      ? fontOptions
-      : [activeSettings.fontFamily, ...fontOptions];
+    const base = Array.isArray(fontOptions) ? fontOptions : [];
+    const current = activeSettings.fontFamily || DEFAULT_CHANNEL_SETTINGS.fontFamily;
+    const combined = base.includes(current) ? base : [current, ...base];
+    return [...new Set(combined.filter(Boolean))];
   }, [activeSettings.fontFamily, fontOptions]);
 
   function updateActiveChannel(field, value) {
@@ -376,30 +365,6 @@ export default function Home() {
     return results;
   }
 
-  function getPlayDurationMs(settings, text = content) {
-    const dimensions = getChannelDimensions(settings.format);
-    const speedValue = Math.max(Number(settings.speed) || 60, 1);
-    const pixelsPerSecond = speedValue * 8;
-    const fontSize = Number(settings.fontSize) || 42;
-    const canvasWidth = Number(dimensions.width) || 1920;
-    const estimatedTextWidth = (text?.length || 120) * fontSize * 0.72 + 72;
-    const startOffset = canvasWidth;
-    const distance = estimatedTextWidth + startOffset;
-    const secondsPerLoop = Math.max(4, distance / pixelsPerSecond);
-    return secondsPerLoop * 1000;
-  }
-
-  function clearCycleTimers() {
-    cycleActiveRef.current = false;
-    if (cycleDelayTimerRef.current) {
-      window.clearTimeout(cycleDelayTimerRef.current);
-      cycleDelayTimerRef.current = null;
-    }
-    channelStopTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-    channelStopTimersRef.current = [];
-    setCycleState("idle");
-  }
-
   async function sendToCaspar(action) {
     setBusy(true);
     setStatus(`Sending command to CH ${selectedChannels.join(", ")}...`);
@@ -409,8 +374,6 @@ export default function Home() {
       const settingsSnapshot = JSON.parse(JSON.stringify(channelSettings));
       const contentSnapshot = content;
 
-      clearCycleTimers();
-
       const results = await sendCommands(
         action,
         channelsSnapshot,
@@ -418,98 +381,7 @@ export default function Home() {
         contentSnapshot
       );
 
-      if (action === "play") {
-        const waitMinutes = Math.max(Number(timerMinutes) || 1, 0.1);
-        const waitMs = waitMinutes * 60 * 1000;
-        cycleActiveRef.current = true;
-        cycleChannelsRef.current = channelsSnapshot;
-        cycleSettingsRef.current = settingsSnapshot;
-        cycleContentRef.current = contentSnapshot;
-        setCycleState("playing");
-
-        const schedulePlay = () => {
-          cycleDelayTimerRef.current = window.setTimeout(async () => {
-            if (!cycleActiveRef.current) return;
-            cycleDelayTimerRef.current = null;
-            try {
-              const playResults = await sendCommands(
-                "play",
-                cycleChannelsRef.current,
-                cycleSettingsRef.current,
-                cycleContentRef.current
-              );
-              setStatus(
-                `${playResults.join("\n")}\nPlaying 1 loop, each channel stops independently.`
-              );
-              setCycleState("playing");
-              scheduleChannelStops();
-            } catch (error) {
-              clearCycleTimers();
-              setCycleState("idle");
-              setStatus(
-                error instanceof Error ? error.message : "Cycle play failed."
-              );
-            }
-          }, waitMs);
-        };
-
-        const scheduleChannelStops = () => {
-          const pendingChannels = new Set(cycleChannelsRef.current);
-          channelStopTimersRef.current.forEach((timer) =>
-            window.clearTimeout(timer)
-          );
-          channelStopTimersRef.current = cycleChannelsRef.current.map(
-            (channel) => {
-              const playDurationMs = getPlayDurationMs(
-                cycleSettingsRef.current[channel],
-                cycleContentRef.current
-              );
-
-              return window.setTimeout(async () => {
-                if (!cycleActiveRef.current) return;
-                try {
-                  const stopResults = await sendCommands(
-                    "clear",
-                    [channel],
-                    cycleSettingsRef.current,
-                    cycleContentRef.current
-                  );
-                  pendingChannels.delete(channel);
-
-                  if (pendingChannels.size > 0) {
-                    setStatus(
-                      `${stopResults.join("\n")}\nWaiting for CH ${[
-                        ...pendingChannels
-                      ].join(", ")} to finish.`
-                    );
-                    return;
-                  }
-
-                  channelStopTimersRef.current = [];
-                  setStatus(
-                    `${stopResults.join("\n")}\nAll selected channels stopped. Restarting after ${waitMinutes} minute(s).`
-                  );
-                  setCycleState("waiting");
-                  schedulePlay();
-                } catch (error) {
-                  clearCycleTimers();
-                  setStatus(
-                    error instanceof Error ? error.message : "Cycle stop failed."
-                  );
-                }
-              }, playDurationMs);
-            }
-          );
-        };
-
-        scheduleChannelStops();
-
-        setStatus(
-          `${results.join("\n")}\nCycle started: play 1 loop, stop each channel at loop finish, wait ${waitMinutes} minute(s), repeat.`
-        );
-      } else {
-        setStatus(`${results.join("\n")}\nCycle stopped.`);
-      }
+      setStatus(results.join("\n"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Command failed.");
     } finally {
@@ -520,7 +392,7 @@ export default function Home() {
   return (
     <main className="control-shell">
       <section className="control-panel">
-        <h1 className="title">CasparCG Scroll Scheduler</h1>
+        <h1 className="title">CasparCG Scroll Generator</h1>
         <p className="subtitle">
           Select channels to play, choose one channel to edit, then send each
           channel with its own settings.
@@ -551,91 +423,26 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="field">
-            <span className="label">
-              Global content
-              <button className="mini-button" type="button" onClick={addContentRow}>
-                Add
-              </button>
-            </span>
-            <div className="content-grid" role="grid">
-              <div className="content-grid-head" role="row">
-                <span>Use</span>
-                <span>Text</span>
-                <span />
-              </div>
-              {contentRows.map((row) => (
-                <div className="content-grid-row" role="row" key={row.id}>
-                  <input
-                    aria-label="Use row"
-                    type="checkbox"
-                    checked={row.selected}
-                    onChange={(event) =>
-                      updateContentRow(row.id, {
-                        selected: event.target.checked
-                      })
-                    }
-                  />
-                  <input
-                    className="input"
-                    value={row.text}
-                    onChange={(event) =>
-                      updateContentRow(row.id, { text: event.target.value })
-                    }
-                  />
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Remove row"
-                    onClick={() => removeContentRow(row.id)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span className="label">CasparCG host</span>
+          <div className="channel-layout">
+            <label className="field host-field">
+              <span className="label">Host</span>
               <input
                 className="input"
-                value={host}
+                value={host ?? ""}
                 onChange={(event) => setHost(event.target.value)}
               />
             </label>
-            <label className="field">
-              <span className="label">AMCP port</span>
+
+            <label className="field port-field">
+              <span className="label">Port</span>
               <input
                 className="input"
                 type="number"
-                value={port}
+                value={port ?? ""}
                 onChange={(event) => setPort(event.target.value)}
               />
             </label>
-          </div>
 
-          <NumberControl
-            label="Restart delay"
-            value={timerMinutes}
-            onChange={setTimerMinutes}
-            min="0.1"
-            max="240"
-            step="0.1"
-            suffix=" min"
-          />
-
-          <div className={`timer-badge ${cycleState}`}>
-            <span className="timer-dot" />
-            {cycleState === "playing"
-              ? "Timer active: playing 1 loop"
-              : cycleState === "waiting"
-                ? `Timer active: waiting ${timerMinutes} min`
-                : "Timer inactive"}
-          </div>
-
-          <div className="channel-layout">
             <fieldset className="field channel-field">
               <legend className="label">Send to</legend>
               <div className="checkbox-row">
@@ -651,15 +458,16 @@ export default function Home() {
                 ))}
               </div>
             </fieldset>
+          </div>
 
-            <div className="field">
+          <div className="control-grid">
+            <div className="field edit-channel-field">
               <span className="label">Edit channel</span>
               <div className="edit-channel-row">
                 {CHANNELS.map((channel) => (
                   <button
-                    className={`channel-tab${
-                      activeChannel === channel ? " is-active" : ""
-                    }`}
+                    className={`channel-tab${activeChannel === channel ? " is-active" : ""
+                      }`}
                     key={channel}
                     type="button"
                     onClick={() => setActiveChannel(channel)}
@@ -669,45 +477,24 @@ export default function Home() {
                 ))}
               </div>
             </div>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span className="label">Font family</span>
-              <select
-                className="input"
-                value={activeSettings.fontFamily}
-                onChange={(event) =>
-                  updateActiveChannel("fontFamily", event.target.value)
-                }
-              >
-                {visibleFontOptions.map((font) => (
-                  <option key={font} value={font}>
-                    {font}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="control-grid">
-            <label className="field">
+            <label className="field layer-field">
               <span className="label">Layer</span>
               <input
                 className="input"
                 type="number"
                 min="1"
-                value={activeSettings.layer}
+                value={activeSettings.layer ?? DEFAULT_CHANNEL_SETTINGS.layer}
                 onChange={(event) =>
                   updateActiveChannel("layer", event.target.value)
                 }
               />
             </label>
-            <label className="field">
+
+            <label className="field format-field">
               <span className="label">Channel format</span>
               <select
                 className="input"
-                value={activeSettings.format}
+                value={activeSettings.format || DEFAULT_CHANNEL_SETTINGS.format}
                 onChange={(event) =>
                   updateActiveChannel("format", event.target.value)
                 }
@@ -719,58 +506,75 @@ export default function Home() {
                 ))}
               </select>
             </label>
+
+            <label className="field font-field">
+              <span className="label">Font family</span>
+              <select
+                className="input"
+                value={activeSettings.fontFamily || DEFAULT_CHANNEL_SETTINGS.fontFamily}
+                onChange={(event) =>
+                  updateActiveChannel("fontFamily", event.target.value)
+                }
+              >
+                {visibleFontOptions.map((font) => (
+                  <option key={font} value={font}>
+                    {font}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <NumberControl
               label="Speed"
-              value={activeSettings.speed}
+              value={activeSettings.speed ?? DEFAULT_CHANNEL_SETTINGS.speed}
               onChange={(value) => updateActiveChannel("speed", value)}
               min="1"
               max="100"
-              suffix=""
+              className="speed-field"
             />
             <NumberControl
               label="Font size"
-              value={activeSettings.fontSize}
+              value={activeSettings.fontSize ?? DEFAULT_CHANNEL_SETTINGS.fontSize}
               onChange={(value) => updateActiveChannel("fontSize", value)}
               min="20"
               max="90"
-              suffix="px"
+              className="fontsize-field"
             />
             <NumberControl
-              label="Vertical position"
-              value={activeSettings.bottom}
+              label="Vertical pos"
+              value={activeSettings.bottom ?? DEFAULT_CHANNEL_SETTINGS.bottom}
               onChange={(value) => updateActiveChannel("bottom", value)}
               min="0"
               max="300"
-              suffix="px"
+              className="pos-field"
             />
             <NumberControl
               label="Strip height"
-              value={activeSettings.height}
+              value={activeSettings.height ?? DEFAULT_CHANNEL_SETTINGS.height}
               onChange={(value) => updateActiveChannel("height", value)}
               min="60"
               max="180"
-              suffix="px"
+              className="height-field"
             />
-          </div>
 
-          <div className="field-row">
             <label className="field color-field">
               <span className="label">Strip color</span>
               <input
                 className="color-input"
                 type="color"
-                value={activeSettings.stripColor}
+                value={activeSettings.stripColor || DEFAULT_CHANNEL_SETTINGS.stripColor}
                 onChange={(event) =>
                   updateActiveChannel("stripColor", event.target.value)
                 }
               />
             </label>
+
             <label className="field color-field">
               <span className="label">Font color</span>
               <input
                 className="color-input"
                 type="color"
-                value={activeSettings.fontColor}
+                value={activeSettings.fontColor || DEFAULT_CHANNEL_SETTINGS.fontColor}
                 onChange={(event) =>
                   updateActiveChannel("fontColor", event.target.value)
                 }
@@ -778,7 +582,53 @@ export default function Home() {
             </label>
           </div>
 
-          <div className="status">{status}</div>
+          <div className="field">
+            <span className="label">
+              Global content
+              <button className="mini-button" type="button" onClick={addContentRow}>
+                Add
+              </button>
+            </span>
+            <div className="content-grid" role="grid">
+              <div className="content-grid-head" role="row">
+                <span>Use</span>
+                <span>Text</span>
+                <span />
+              </div>
+              <div className="content-grid-body">
+                {contentRows.map((row, index) => (
+                  <div className="content-grid-row" role="row" key={row.id ?? `row-${index}`}>
+                    <input
+                      aria-label="Use row"
+                      type="checkbox"
+                      checked={Boolean(row.selected)}
+                      onChange={(event) =>
+                        updateContentRow(row.id, {
+                          selected: event.target.checked
+                        })
+                      }
+                    />
+                    <textarea
+                      className="input content-input"
+                      rows={2}
+                      value={row.text ?? ""}
+                      onChange={(event) =>
+                        updateContentRow(row.id, { text: event.target.value })
+                      }
+                    />
+                    <button
+                      className="icon-button"
+                      type="button"
+                      aria-label="Remove row"
+                      onClick={() => removeContentRow(row.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
