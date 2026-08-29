@@ -9,10 +9,11 @@ function getInitialTiming({ text, speed, fontSize, canvasWidth }) {
   const speedValue = Math.max(Number(speed) || 60, 1);
   const pixelsPerSecond = speedValue * 8;
   const size = Number(fontSize) || 42;
-  const outputWidth = Number(canvasWidth) || 1920;
-  const estimatedTextWidth = (text?.length || 120) * size * 0.72 + 72;
-  const startOffset = outputWidth;
-  const distance = estimatedTextWidth + startOffset;
+  const outputWidth = typeof window !== "undefined" && window.innerWidth
+    ? window.innerWidth
+    : Math.max(Number(canvasWidth) || 1920, 1920);
+  const estimatedTextWidth = (text?.length || 120) * size * 0.75 + 100;
+  const distance = estimatedTextWidth + outputWidth + 200;
 
   return {
     duration: Math.max(4, distance / pixelsPerSecond),
@@ -46,12 +47,10 @@ export default function Ticker({
   const [travelDistance, setTravelDistance] = useState(
     initialTiming.travelDistance
   );
-  const [viewportWidth, setViewportWidth] = useState(Number(canvasWidth) || 1920);
   const [isFinished, setIsFinished] = useState(false);
   const bottomPx = Number(bottom) || 64;
   const outputWidth = Number(canvasWidth) || 1920;
   const outputHeight = Number(canvasHeight) || 1080;
-  const startOffset = animate ? viewportWidth : outputWidth;
   const bottomPercent = `${(bottomPx / outputHeight) * 100}%`;
   const heightPercent = `${((Number(height) || 108) / outputHeight) * 100}%`;
   const bottomViewport = `${(bottomPx / outputHeight) * 100}vh`;
@@ -64,25 +63,6 @@ export default function Ticker({
   }, [safeText, speed, fontSize, fontFamily, canvasWidth, canvasHeight, loopCount]);
 
   useEffect(() => {
-    if (!animate) {
-      setViewportWidth(outputWidth);
-      return;
-    }
-
-    function syncViewport() {
-      const currentWidth = window.innerWidth || outputWidth;
-      setViewportWidth(currentWidth);
-    }
-
-    syncViewport();
-    window.addEventListener("resize", syncViewport);
-
-    return () => {
-      window.removeEventListener("resize", syncViewport);
-    };
-  }, [animate, outputWidth]);
-
-  useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
@@ -90,23 +70,21 @@ export default function Ticker({
     const pixelsPerSecond = speedValue * 8;
     const firstCopy = track.querySelector(".ticker-copy");
     const copyWidth = firstCopy?.scrollWidth || firstCopy?.offsetWidth || 0;
-    const actualWidth = animate && typeof window !== "undefined"
-      ? (window.innerWidth || outputWidth)
+    const actualViewport = animate && typeof window !== "undefined" && window.innerWidth
+      ? window.innerWidth
       : outputWidth;
-    const textWidth = copyWidth > 0 ? copyWidth + 72 : (track.scrollWidth || actualWidth);
-    const distance = textWidth + actualWidth + 100;
+    const textWidth = copyWidth > 0 ? copyWidth + 100 : (track.scrollWidth || actualViewport);
+    const distance = textWidth + actualViewport + 200;
     setTravelDistance(distance);
     setDuration(Math.max(4, distance / pixelsPerSecond));
-  }, [safeText, speed, fontSize, fontFamily, outputWidth, viewportWidth, animate]);
+  }, [safeText, speed, fontSize, fontFamily, outputWidth, animate]);
 
   const animationKey = [
     safeText,
     `speed-${speed}`,
     fontSize,
     fontFamily,
-    viewportWidth,
-    Math.round(duration * 100),
-    Math.round(travelDistance)
+    loopCount
   ].join("|");
 
   return (
@@ -129,7 +107,7 @@ export default function Ticker({
         "--ticker-font-color": fontColor,
         "--ticker-font-family": fontFamily,
         "--ticker-travel": `${travelDistance}px`,
-        "--ticker-start": `${startOffset}px`,
+        "--ticker-start": animate ? "100vw" : "24px",
         "--ticker-iterations": loops
       }}
     >
