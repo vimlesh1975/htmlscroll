@@ -542,6 +542,17 @@ select.input {
   padding: 2px 5px;
 }
 
+/* Hide Next.js dev overlay indicator icon on broadcast / ticker output */
+nextjs-portal,
+#nextjs-dev-indicator,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @media (max-width: 900px) {
   .control-shell {
     grid-template-columns: 1fr;
